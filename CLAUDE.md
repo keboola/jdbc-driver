@@ -45,7 +45,7 @@ Java 11+. Surefire needs `-Dnet.bytebuddy.experimental=true` (already configured
 cd vscode-sqltools
 npm install                # Install dependencies
 npm run compile            # Build with tsup (extension.ts + ls/plugin.ts -> out/)
-npm test                   # Run 147 unit tests via vscode-test
+npm test                   # Run 192 unit tests via vscode-test
 npm run package            # Create .vsix
 npm run test:integration   # Run live API integration tests (needs .env)
 ```
@@ -135,13 +135,14 @@ cp sqltools-keboola-driver-*.vsix dist/
 ## Testing
 
 ### JDBC Driver
-- Unit tests in `jdbc-driver/src/test/java/com/keboola/jdbc/`: TypeMapperTest, ConnectionConfigTest, ArrayResultSetTest, KeboolaDriverTest, SchemaCacheTest
+- 209 unit tests in `jdbc-driver/src/test/java/com/keboola/jdbc/`: TypeMapperTest, ConnectionConfigTest, ArrayResultSetTest, KeboolaDriverTest, KeboolaStatementTest, SchemaCacheTest, EpochConverterTest, HelpCommandHandlerTest, KeboolaCommandDispatcherTest, VirtualTableHandlerTest
+- `KeboolaDriverIT` is an E2E integration test (run by `mvn verify -Pkeboola-integration`, skips without `KEBOOLA_TOKEN`)
 - `ManualConnectionTest` is a CLI integration test (not run by `mvn test`), needs `KEBOOLA_TOKEN` env var
 - Use JUnit 5 + Mockito 5.11
 
 ### VSCode Extension
-- 147 unit tests in `vscode-sqltools/src/test/suite/`: driver.test.ts, schema-cache.test.ts, virtual-tables.test.ts, help-command.test.ts, schema.test.ts, constants.test.ts
-- 9 integration tests in `vscode-sqltools/tests/integration.test.ts` (needs `.env` with KEBOOLA_TOKEN)
+- 192 unit tests in `vscode-sqltools/src/test/suite/`: driver.test.ts, schema-cache.test.ts, virtual-tables.test.ts, epoch-converter.test.ts, schema.test.ts, constants.test.ts
+- 10 integration tests in `vscode-sqltools/tests/integration.test.ts` (needs `.env` with KEBOOLA_TOKEN)
 - Uses Mocha + VSCode test runner
 
 ## Project Structure
