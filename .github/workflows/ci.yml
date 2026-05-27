@@ -36,6 +36,15 @@ jobs:
       - name: Unit tests
         run: mvn -B test
 
+      - name: Check E2E secrets
+        env:
+          KEBOOLA_TOKEN: ${{ secrets.KEBOOLA_TOKEN }}
+        run: |
+          if [ -z "$KEBOOLA_TOKEN" ]; then
+            echo "::error::KEBOOLA_TOKEN secret is not set — E2E tests cannot run. Configure it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - name: E2E tests
         run: mvn -B verify -Pkeboola-integration
         env:
@@ -75,6 +84,15 @@ jobs:
 
       - name: Unit tests
         run: xvfb-run -a npm test
+
+      - name: Check E2E secrets
+        env:
+          KEBOOLA_TOKEN: ${{ secrets.KEBOOLA_TOKEN }}
+        run: |
+          if [ -z "$KEBOOLA_TOKEN" ]; then
+            echo "::error::KEBOOLA_TOKEN secret is not set — E2E tests cannot run. Configure it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
 
       - name: Integration tests
         run: npm run test:integration
