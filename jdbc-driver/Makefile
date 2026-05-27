@@ -1,8 +1,5 @@
 .PHONY: build test test-e2e test-all clean dist jar manual-test help
 
-JAR_NAME := keboola-jdbc-driver-2.1.4.jar
-TARGET_JAR := target/$(JAR_NAME)
-DIST_JAR := dist/$(JAR_NAME)
 JAVA_HOME ?= $(shell mvn -q help:evaluate -Dexpression=java.home -DforceStdout 2>/dev/null)
 JAVA := $(JAVA_HOME)/bin/java
 
@@ -21,16 +18,15 @@ test-e2e: ## Run E2E integration tests (needs KEBOOLA_TOKEN env)
 
 test-all: test test-e2e ## Run unit + E2E tests
 
-dist: build ## Build and copy jar to dist/
+dist: build ## Build and copy jar to dist/ (version comes from pom revision)
 	@mkdir -p dist
-	cp $(TARGET_JAR) $(DIST_JAR)
-	@echo "$(DIST_JAR) ready ($(shell du -h $(DIST_JAR) | cut -f1))"
+	cp target/keboola-jdbc-driver-*.jar dist/
+	@echo "dist/ ready:" && ls -1sh dist/keboola-jdbc-driver-*.jar | tail -1
 
 jar: dist ## Alias for dist
 
-clean: ## Remove build artifacts
+clean: ## Remove build artifacts (keeps released jars in dist/)
 	mvn clean -q
-	rm -f $(DIST_JAR)
 
 manual-test: ## Run manual connection test (needs KEBOOLA_TOKEN env)
 	@test -n "$(KEBOOLA_TOKEN)" || (echo "Error: KEBOOLA_TOKEN is not set" && exit 1)

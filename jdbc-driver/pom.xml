@@ -6,13 +6,15 @@
 
     <groupId>com.keboola</groupId>
     <artifactId>keboola-jdbc-driver</artifactId>
-    <version>2.1.4</version>
+    <version>${revision}</version>
     <packaging>jar</packaging>
 
     <name>Keboola JDBC Driver</name>
     <description>JDBC driver for Keboola Query Service - connects DataGrip and other JDBC clients to Keboola projects</description>
 
     <properties>
+        <!-- Single source of truth for the version. Overridden in CI release with -Drevision=<tag>. -->
+        <revision>2.1.4</revision>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -71,6 +73,13 @@
     </dependencies>
 
     <build>
+        <resources>
+            <!-- Filter version.properties so DriverConfig can read the build version at runtime. -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -93,6 +102,8 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <!-- Avoid emitting dependency-reduced-pom.xml with an unresolved ${revision}. -->
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
