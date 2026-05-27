@@ -45,7 +45,7 @@ Java 11+. Surefire needs `-Dnet.bytebuddy.experimental=true` (already configured
 cd vscode-sqltools
 npm install                # Install dependencies
 npm run compile            # Build with tsup (extension.ts + ls/plugin.ts -> out/)
-npm test                   # Run 192 unit tests via vscode-test
+npm test                   # Run 171 unit tests via vscode-test
 npm run package            # Create .vsix
 npm run test:integration   # Run live API integration tests (needs .env)
 ```
@@ -144,7 +144,7 @@ To build release-versioned artifacts locally (without a tag):
 - Use JUnit 5 + Mockito 5.11
 
 ### VSCode Extension
-- 192 unit tests in `vscode-sqltools/src/test/suite/`: driver.test.ts, schema-cache.test.ts, virtual-tables.test.ts, epoch-converter.test.ts, schema.test.ts, constants.test.ts
+- 171 unit tests in `vscode-sqltools/src/test/suite/`: driver.test.ts, schema-cache.test.ts, virtual-tables.test.ts, epoch-converter.test.ts, schema.test.ts, constants.test.ts
 - 10 integration tests in `vscode-sqltools/tests/integration.test.ts` (needs `.env` with KEBOOLA_TOKEN)
 - Uses Mocha + VSCode test runner
 
