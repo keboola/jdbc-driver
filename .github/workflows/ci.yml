@@ -36,7 +36,10 @@ jobs:
       - name: Unit tests
         run: mvn -B test
 
+      # E2E needs secrets, which are unavailable to PRs from forks. Run only on
+      # push or same-repo PRs; fork PRs run unit tests only.
       - name: Check E2E secrets
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           KEBOOLA_TOKEN: ${{ secrets.KEBOOLA_TOKEN }}
         run: |
@@ -46,6 +49,7 @@ jobs:
           fi
 
       - name: E2E tests
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: mvn -B verify -Pkeboola-integration
         env:
           KEBOOLA_TOKEN: ${{ secrets.KEBOOLA_TOKEN }}
@@ -85,7 +89,10 @@ jobs:
       - name: Unit tests
         run: xvfb-run -a npm test
 
+      # E2E needs secrets, which are unavailable to PRs from forks. Run only on
+      # push or same-repo PRs; fork PRs run unit tests only.
       - name: Check E2E secrets
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           KEBOOLA_TOKEN: ${{ secrets.KEBOOLA_TOKEN }}
         run: |
@@ -95,6 +102,7 @@ jobs:
           fi
 
       - name: Integration tests
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: npm run test:integration
         env:
           KEBOOLA_STACK: ${{ secrets.KEBOOLA_STACK }}
