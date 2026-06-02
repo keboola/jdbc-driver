@@ -9,7 +9,7 @@ help: ## Show this help
 build: ## Build uber-jar (skip tests)
 	mvn clean package -q -DskipTests
 
-test: ## Run unit tests (214 tests, no network needed)
+test: ## Run unit tests (379 tests, no network needed)
 	mvn test
 
 test-e2e: ## Run E2E integration tests (needs KEBOOLA_TOKEN env)
