@@ -50,7 +50,9 @@ jobs:
 
       - name: E2E tests
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-        run: mvn -B verify -Pkeboola-integration
+        # Invoke failsafe goals directly instead of `verify` so surefire (unit tests)
+        # doesn't run a second time — it already ran in the previous step.
+        run: mvn -B test-compile failsafe:integration-test failsafe:verify -Pkeboola-integration
         env:
           KEBOOLA_TOKEN: ${{ secrets.KEBOOLA_TOKEN }}
           KEBOOLA_WORKSPACE: ${{ secrets.KEBOOLA_WORKSPACE }}

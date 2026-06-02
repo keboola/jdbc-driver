@@ -20,7 +20,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -329,11 +328,5 @@ class KeboolaConnectionTest {
                 .submitJob(anyLong(), anyLong(),
                         org.mockito.ArgumentMatchers.<List<String>>any(), anyString());
         assertEquals("S2", conn.getSchema());
-    }
-
-    // Use Arrays import to silence unused-import warning
-    @SuppressWarnings("unused")
-    private static List<String> unusedHelper() {
-        return Arrays.asList("a", "b");
     }
 }

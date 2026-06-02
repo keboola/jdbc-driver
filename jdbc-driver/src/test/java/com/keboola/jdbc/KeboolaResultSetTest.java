@@ -4,7 +4,6 @@ import com.keboola.jdbc.config.DriverConfig;
 import com.keboola.jdbc.http.QueryServiceClient;
 import com.keboola.jdbc.http.model.QueryResult;
 import com.keboola.jdbc.http.model.ResultColumn;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
