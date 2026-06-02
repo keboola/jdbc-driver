@@ -35,7 +35,7 @@ cd jdbc-driver
 KEBOOLA_TOKEN=xxx java -cp target/keboola-jdbc-driver-2.1.4.jar com.keboola.jdbc.ManualConnectionTest
 ```
 
-**After every version bump or code change, always run `make dist`** (from `jdbc-driver/`) to rebuild the uber-jar and copy it to `jdbc-driver/dist/`. The `dist/` directory contains the release-ready jars that users download. **Never delete old jars from `jdbc-driver/dist/`** -- keep all previous versions for version history.
+**To refresh the local/dev jar, run `make dist`** (from `jdbc-driver/`) to rebuild the uber-jar and copy it to `jdbc-driver/dist/`. Note: the canonical release artifacts are built and attached to the GitHub Release by the Release workflow from the git tag (see Release Checklist); `make dist` is for local/dev builds. **Never delete old jars from `jdbc-driver/dist/`** -- keep all previous versions for version history.
 
 Java 11+. Surefire needs `-Dnet.bytebuddy.experimental=true` (already configured in pom.xml for Java 25 compat).
 
@@ -138,14 +138,14 @@ To build release-versioned artifacts locally (without a tag):
 ## Testing
 
 ### JDBC Driver
-- 379 unit tests in `jdbc-driver/src/test/java/com/keboola/jdbc/`: TypeMapperTest, ConnectionConfigTest, ArrayResultSetTest, KeboolaDriverTest, KeboolaStatementTest, SchemaCacheTest, EpochConverterTest, HelpCommandHandlerTest, KeboolaCommandDispatcherTest, VirtualTableHandlerTest
+- 379 unit tests in `jdbc-driver/src/test/java/com/keboola/jdbc/`: TypeMapperTest, ConnectionConfigTest, ArrayResultSetTest, KeboolaDriverTest, KeboolaStatementTest, SchemaCacheTest, EpochConverterTest, HelpCommandHandlerTest, KeboolaCommandDispatcherTest, VirtualTableHandlerTest, KeboolaConnectionTest, KeboolaDatabaseMetaDataTest, KeboolaResultSetTest, http/StorageApiClientTest, http/QueryServiceClientTest, http/JobQueueClientTest
 - `KeboolaDriverIT` is an E2E integration test (run by `mvn verify -Pkeboola-integration`, skips without `KEBOOLA_TOKEN`)
 - `ManualConnectionTest` is a CLI integration test (not run by `mvn test`), needs `KEBOOLA_TOKEN` env var
 - Use JUnit 5 + Mockito 5.11
 
 ### VSCode Extension
 - 171 unit tests in `vscode-sqltools/src/test/suite/`: driver.test.ts, schema-cache.test.ts, virtual-tables.test.ts, epoch-converter.test.ts, schema.test.ts, constants.test.ts
-- 10 integration tests in `vscode-sqltools/tests/integration.test.ts` (needs `.env` with KEBOOLA_TOKEN)
+- 9 integration tests in `vscode-sqltools/tests/integration.test.ts` (needs `.env` with KEBOOLA_TOKEN)
 - Uses Mocha + VSCode test runner
 
 ## Project Structure

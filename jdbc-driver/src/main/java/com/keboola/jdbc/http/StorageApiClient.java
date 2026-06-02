@@ -240,10 +240,35 @@ public class StorageApiClient {
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        if (base.startsWith("http://") || base.startsWith("https://")) {
+        if (base.startsWith("https://")) {
             return base + path;
         }
+        // Plaintext http:// is honored only for loopback (local test servers like
+        // MockWebServer). The Storage API token is attached to every request, so it
+        // must never be sent in cleartext to a remote host: upgrade those to https.
+        if (base.startsWith("http://")) {
+            if (isLoopbackBaseUrl(base)) {
+                return base + path;
+            }
+            return "https://" + base.substring("http://".length()) + path;
+        }
         return "https://" + base + path;
+    }
+
+    /** True if an "http://" base URL points at a loopback host (localhost / 127.0.0.1 / ::1). */
+    private static boolean isLoopbackBaseUrl(String httpBase) {
+        String hostPort = httpBase.substring("http://".length());
+        int slash = hostPort.indexOf('/');
+        if (slash >= 0) {
+            hostPort = hostPort.substring(0, slash);
+        }
+        int colon = hostPort.lastIndexOf(':');
+        // Keep IPv6 brackets intact; only strip a trailing :port.
+        String hostOnly = (colon >= 0 && hostPort.indexOf(']') < colon) ? hostPort.substring(0, colon) : hostPort;
+        return hostOnly.equals("localhost")
+                || hostOnly.equals("127.0.0.1")
+                || hostOnly.equals("[::1]")
+                || hostOnly.equals("::1");
     }
 
     /**

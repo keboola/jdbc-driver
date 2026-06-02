@@ -16,7 +16,12 @@ public final class DriverConfig {
     // --- Driver identity ---
 
     public static final String DRIVER_NAME    = "Keboola JDBC Driver";
-    /** Build version, filtered from version.properties at package time. "dev" when built without Maven (IDE/tests). */
+    /**
+     * Build version, filtered from {@code version.properties} at build time. Resolves to the
+     * Maven project version under any Maven build (including {@code mvn test}, whose
+     * process-resources phase filters the resource). Falls back to "dev" only when the class is
+     * loaded from an unfiltered resource -- e.g. run directly from {@code src/} in an IDE.
+     */
     public static final String DRIVER_VERSION = loadVersion();
     /** Advertised JDBC major/minor version; bump manually on a major/minor release. */
     public static final int    MAJOR_VERSION  = 2;

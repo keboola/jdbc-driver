@@ -63,7 +63,13 @@ class KeboolaDatabaseMetaDataTest {
 
     @Test
     void getDatabaseProductVersion_returnsDriverVersion() {
-        assertEquals(DriverConfig.DRIVER_VERSION, meta.getDatabaseProductVersion());
+        String version = meta.getDatabaseProductVersion();
+        assertEquals(DriverConfig.DRIVER_VERSION, version);
+        // Contract beyond the wiring check: the version is always a non-empty token --
+        // either a real build version (X.Y.Z...) or the "dev" fallback, never blank/null.
+        assertNotNull(version);
+        assertFalse(version.trim().isEmpty());
+        assertTrue(version.matches("dev|\\d+\\.\\d+\\.\\d+.*"), "Unexpected version format: " + version);
     }
 
     @Test
@@ -235,7 +241,10 @@ class KeboolaDatabaseMetaDataTest {
 
         meta.getSchemas("MY_DB", null);
 
-        assertTrue(sqlCaptor.getValue().contains("MY_DB"), sqlCaptor.getValue());
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.startsWith("SHOW SCHEMAS"), sql);
+        // buildCatalogInClause emits ` IN DATABASE "MY_DB"` (identifier double-quoted).
+        assertTrue(sql.contains("IN DATABASE \"MY_DB\""), sql);
     }
 
     // ---------------------------------------------------------------------
@@ -330,6 +339,13 @@ class KeboolaDatabaseMetaDataTest {
         assertTrue(result.next());
         assertEquals("EMAIL", result.getString("COLUMN_NAME"));
         assertEquals("USERS", result.getString("TABLE_NAME"));
+        // The data_type JSON must actually be parsed: TEXT maps to VARCHAR, "length":255
+        // becomes COLUMN_SIZE, and "nullable":true becomes columnNullable / IS_NULLABLE=YES.
+        assertEquals("VARCHAR", result.getString("TYPE_NAME"));
+        assertEquals(java.sql.Types.VARCHAR, result.getInt("DATA_TYPE"));
+        assertEquals(255, result.getInt("COLUMN_SIZE"));
+        assertEquals(java.sql.DatabaseMetaData.columnNullable, result.getInt("NULLABLE"));
+        assertEquals("YES", result.getString("IS_NULLABLE"));
     }
 
     @Test
