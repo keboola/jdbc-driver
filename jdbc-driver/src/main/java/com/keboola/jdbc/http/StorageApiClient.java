@@ -232,6 +232,11 @@ public class StorageApiClient {
     // --- Internal helpers ---
 
     private String storageUrl(String path) {
+        // Accept either a bare host ("connection.keboola.com") or a full base URL
+        // ("http://localhost:1234"). The latter is used by unit tests against MockWebServer.
+        if (host.startsWith("http://") || host.startsWith("https://")) {
+            return host + path;
+        }
         return "https://" + host + path;
     }
 
