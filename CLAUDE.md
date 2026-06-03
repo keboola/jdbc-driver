@@ -35,7 +35,7 @@ cd jdbc-driver
 KEBOOLA_TOKEN=xxx java -cp target/keboola-jdbc-driver-2.1.4.jar com.keboola.jdbc.ManualConnectionTest
 ```
 
-**After every version bump or code change, always run `make dist`** (from `jdbc-driver/`) to rebuild the uber-jar and copy it to `jdbc-driver/dist/`. The `dist/` directory contains the release-ready jars that users download. **Never delete old jars from `jdbc-driver/dist/`** -- keep all previous versions for version history.
+**To refresh the local/dev jar, run `make dist`** (from `jdbc-driver/`) to rebuild the uber-jar and copy it to `jdbc-driver/dist/`. Note: the canonical release artifacts are built and attached to the GitHub Release by the Release workflow from the git tag (see Release Checklist); `make dist` is for local/dev builds. **Never delete old jars from `jdbc-driver/dist/`** -- keep all previous versions for version history.
 
 Java 11+. Surefire needs `-Dnet.bytebuddy.experimental=true` (already configured in pom.xml for Java 25 compat).
 
@@ -45,7 +45,7 @@ Java 11+. Surefire needs `-Dnet.bytebuddy.experimental=true` (already configured
 cd vscode-sqltools
 npm install                # Install dependencies
 npm run compile            # Build with tsup (extension.ts + ls/plugin.ts -> out/)
-npm test                   # Run 147 unit tests via vscode-test
+npm test                   # Run 171 unit tests via vscode-test
 npm run package            # Create .vsix
 npm run test:integration   # Run live API integration tests (needs .env)
 ```
@@ -62,31 +62,34 @@ cp sqltools-keboola-driver-*.vsix dist/
 ## Release Checklist
 
 **MANDATORY: Before merging to main and creating a release, ALWAYS run tests first.**
-**Both projects share the same version number** (e.g. 2.1.4). Always bump both together.
 
-### JDBC Driver
-1. Run unit tests: `cd jdbc-driver && mvn test`
+**The git tag is the single source of truth for the release version.** The Release
+GitHub Actions workflow (`.github/workflows/release.yml`) derives the version from the
+tag (`vX.Y.Z` -> `X.Y.Z`), injects it into the Maven build (`-Drevision=X.Y.Z`) and
+into `package.json` (`npm version`), builds the jar + VSIX, and attaches them to the
+GitHub Release. No manual file edits are required to release.
+
+The committed defaults are only the *local/dev* version and do not need to be bumped
+to release: `<revision>` in `jdbc-driver/pom.xml` and `"version"` in
+`vscode-sqltools/package.json`. Bump them when you want local `make dist` /
+`npm run package` artifacts to carry the new number. `DriverConfig.DRIVER_VERSION`
+is read from a filtered `version.properties` at build time (no longer hardcoded);
+`MAJOR_VERSION`/`MINOR_VERSION` stay hardcoded and are bumped manually on major/minor releases.
+
+### Before releasing
+1. Run unit tests: `cd jdbc-driver && mvn test` and `cd vscode-sqltools && npm test`
 2. Run E2E tests: `cd jdbc-driver && KEBOOLA_TOKEN=xxx KEBOOLA_WORKSPACE=yyy mvn verify -Pkeboola-integration`
 3. Fix any failures
-4. Bump version in **3 files**: `pom.xml`, `DriverConfig.java` (`DRIVER_VERSION`), `Makefile` (`JAR_NAME`)
-5. Build and copy jar: `cd jdbc-driver && make dist`
-6. Verify jar exists in `jdbc-driver/dist/`
+4. (Optional) Update version references in `README.md` (download links, install commands)
 
-### VSCode Extension
-1. Run tests: `cd vscode-sqltools && npm test`
-2. Bump version in `package.json` (`"version"` field)
-3. Build VSIX: `cd vscode-sqltools && npm run package`
-4. Copy to dist: `cp sqltools-keboola-driver-*.vsix dist/`
-5. Verify VSIX exists in `vscode-sqltools/dist/`
-
-### Shared Files
-- Update version references in `README.md` (download links, install commands)
-- Update version references in `CLAUDE.md`
-
-### After Merge
+### Release (tag-driven)
 1. `git checkout main && git pull`
 2. `git tag vX.Y.Z && git push origin vX.Y.Z`
-3. `gh release create vX.Y.Z jdbc-driver/dist/keboola-jdbc-driver-X.Y.Z.jar --title "vX.Y.Z"`
+3. The Release workflow builds and publishes the jar + VSIX to the GitHub Release automatically.
+
+To build release-versioned artifacts locally (without a tag):
+`cd jdbc-driver && mvn -Drevision=X.Y.Z clean package` and
+`cd vscode-sqltools && npm version X.Y.Z --no-git-tag-version && npm run package`.
 
 ## Architecture
 
@@ -135,12 +138,13 @@ cp sqltools-keboola-driver-*.vsix dist/
 ## Testing
 
 ### JDBC Driver
-- Unit tests in `jdbc-driver/src/test/java/com/keboola/jdbc/`: TypeMapperTest, ConnectionConfigTest, ArrayResultSetTest, KeboolaDriverTest, SchemaCacheTest
+- 379 unit tests in `jdbc-driver/src/test/java/com/keboola/jdbc/`: TypeMapperTest, ConnectionConfigTest, ArrayResultSetTest, KeboolaDriverTest, KeboolaStatementTest, SchemaCacheTest, EpochConverterTest, HelpCommandHandlerTest, KeboolaCommandDispatcherTest, VirtualTableHandlerTest, KeboolaConnectionTest, KeboolaDatabaseMetaDataTest, KeboolaResultSetTest, http/StorageApiClientTest, http/QueryServiceClientTest, http/JobQueueClientTest
+- `KeboolaDriverIT` is an E2E integration test (run by `mvn verify -Pkeboola-integration`, skips without `KEBOOLA_TOKEN`)
 - `ManualConnectionTest` is a CLI integration test (not run by `mvn test`), needs `KEBOOLA_TOKEN` env var
 - Use JUnit 5 + Mockito 5.11
 
 ### VSCode Extension
-- 147 unit tests in `vscode-sqltools/src/test/suite/`: driver.test.ts, schema-cache.test.ts, virtual-tables.test.ts, help-command.test.ts, schema.test.ts, constants.test.ts
+- 171 unit tests in `vscode-sqltools/src/test/suite/`: driver.test.ts, schema-cache.test.ts, virtual-tables.test.ts, epoch-converter.test.ts, schema.test.ts, constants.test.ts
 - 9 integration tests in `vscode-sqltools/tests/integration.test.ts` (needs `.env` with KEBOOLA_TOKEN)
 - Uses Mocha + VSCode test runner
 

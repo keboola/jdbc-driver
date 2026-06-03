@@ -1,5 +1,8 @@
 package com.keboola.jdbc.config;
 
+import java.io.InputStream;
+import java.util.Properties;
+
 /**
  * Static driver-wide constants and default configuration values.
  * All tunables are defined here to avoid hardcoded values elsewhere in the codebase.
@@ -13,9 +16,32 @@ public final class DriverConfig {
     // --- Driver identity ---
 
     public static final String DRIVER_NAME    = "Keboola JDBC Driver";
-    public static final String DRIVER_VERSION = "2.1.4";
+    /**
+     * Build version, filtered from {@code version.properties} at build time. Resolves to the
+     * Maven project version under any Maven build (including {@code mvn test}, whose
+     * process-resources phase filters the resource). Falls back to "dev" only when the class is
+     * loaded from an unfiltered resource -- e.g. run directly from {@code src/} in an IDE.
+     */
+    public static final String DRIVER_VERSION = loadVersion();
+    /** Advertised JDBC major/minor version; bump manually on a major/minor release. */
     public static final int    MAJOR_VERSION  = 2;
     public static final int    MINOR_VERSION  = 1;
+
+    private static String loadVersion() {
+        try (InputStream in = DriverConfig.class.getResourceAsStream("/version.properties")) {
+            if (in != null) {
+                Properties props = new Properties();
+                props.load(in);
+                String v = props.getProperty("driver.version");
+                if (v != null && !v.isEmpty() && !v.startsWith("${")) {
+                    return v;
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through to default
+        }
+        return "dev";
+    }
 
     // --- JDBC URL ---
 

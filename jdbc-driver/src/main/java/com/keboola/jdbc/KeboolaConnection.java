@@ -128,6 +128,28 @@ public class KeboolaConnection implements Connection {
         }
     }
 
+    /**
+     * Package-private constructor used by tests to inject pre-built clients and
+     * skip the full network setup flow. Not part of the public API.
+     */
+    KeboolaConnection(String host,
+                      StorageApiClient storageClient,
+                      QueryServiceClient queryClient,
+                      long branchId,
+                      long workspaceId,
+                      String catalog,
+                      String schema) {
+        this.host = host;
+        this.storageClient = storageClient;
+        this.queryClient = queryClient;
+        this.tokenInfo = null;
+        this.branchId = branchId;
+        this.workspaceId = workspaceId;
+        this.catalog = catalog;
+        this.currentSchema = schema;
+        this.sessionId = "test-session";
+    }
+
     // -------------------------------------------------------------------------
     // Connection setup helpers
     // -------------------------------------------------------------------------

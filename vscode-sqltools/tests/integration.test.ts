@@ -359,15 +359,16 @@ async function main(): Promise<void> {
   await runTest(
     'Pagination - query with multiple result pages',
     async () => {
-      // Use a query that returns many rows -- SHOW SCHEMAS usually returns enough rows
-      // to test pagination. If not, we skip.
+      // Generate enough rows to span multiple pages. Query Service enforces a
+      // minimum pageSize of 100, so we ask for 250 rows -> pages of 100/100/50
+      // (the test fetches the first two).
       const submitPath = `/api/v1/branches/${branchId}/workspaces/${workspaceId}/queries`;
       const { status: submitStatus, data: submitData } = await apiRequest<{
         queryJobId: string;
       }>(queryServiceUrl, submitPath, config.token, {
         method: 'POST',
         body: JSON.stringify({
-          statements: ['SHOW SCHEMAS'],
+          statements: ['SELECT seq4() AS n FROM TABLE(GENERATOR(ROWCOUNT => 250))'],
           wait: false,
         }),
       });
@@ -383,9 +384,8 @@ async function main(): Promise<void> {
       const stmt = job.statements[0];
       assert(stmt.status === 'completed', `Expected statement "completed", got "${stmt.status}"`);
 
-      // Fetch page 1 with small page size to test pagination
-      const smallPageSize = 2;
-      const resultPath = `/api/v1/queries/${queryJobId}/${stmt.id}/results?offset=0&pageSize=${smallPageSize}`;
+      // Fetch page 1 -- minimum pageSize accepted by the API is 100 (module-level PAGE_SIZE).
+      const resultPath = `/api/v1/queries/${queryJobId}/${stmt.id}/results?offset=0&pageSize=${PAGE_SIZE}`;
       const { status: resultStatus, data: page1 } = await apiRequest<any>(
         queryServiceUrl,
         resultPath,
@@ -397,9 +397,9 @@ async function main(): Promise<void> {
       const totalRows = page1.numberOfRows ?? page1.data.length;
       console.log(`        Total rows: ${totalRows}, first page: ${page1.data.length} rows`);
 
-      if (totalRows > smallPageSize) {
+      if (totalRows > PAGE_SIZE) {
         // Fetch page 2
-        const page2Path = `/api/v1/queries/${queryJobId}/${stmt.id}/results?offset=${smallPageSize}&pageSize=${smallPageSize}`;
+        const page2Path = `/api/v1/queries/${queryJobId}/${stmt.id}/results?offset=${PAGE_SIZE}&pageSize=${PAGE_SIZE}`;
         const { status: page2Status, data: page2 } = await apiRequest<any>(
           queryServiceUrl,
           page2Path,
@@ -408,6 +408,12 @@ async function main(): Promise<void> {
         assert(page2Status === 200, `Expected HTTP 200 for page 2, got ${page2Status}`);
         assert(Array.isArray(page2.data), 'Expected data array in second page');
         assert(page2.data.length > 0, 'Expected at least 1 row on second page');
+        // Verify the offset actually advanced: page 2 must not repeat page 1's first row.
+        // (seq4() yields a monotonic sequence, so the first cells must differ across pages.)
+        assert(
+          String(page2.data[0][0]) !== String(page1.data[0][0]),
+          'Expected page 2 to start at a different offset than page 1'
+        );
         console.log(`        Second page: ${page2.data.length} rows`);
       } else {
         console.log(`        Only ${totalRows} row(s) -- pagination not needed, but API call succeeded`);
@@ -421,7 +427,8 @@ async function main(): Promise<void> {
   await runTest(
     'Query history - GET workspace queries',
     async () => {
-      const historyPath = `/api/v1/branches/${branchId}/workspaces/${workspaceId}/queries?pageSize=10`;
+      // Query Service enforces a minimum pageSize of 100.
+      const historyPath = `/api/v1/branches/${branchId}/workspaces/${workspaceId}/queries?pageSize=100`;
       const { status, data } = await apiRequest<any>(
         queryServiceUrl,
         historyPath,
