@@ -48,10 +48,10 @@ jobs:
 
       - name: Build JDBC driver jar
         working-directory: jdbc-driver
-        run: |
-          mvn -B -Drevision=${{ steps.version.outputs.version }} clean package -DskipTests
-          mkdir -p dist
-          cp target/keboola-jdbc-driver-*.jar dist/
+        # Build straight into target/. We deliberately do NOT copy into dist/
+        # because dist/ is checked in (a history of every release jar) and a
+        # glob over it would attach all historic artifacts to the new release.
+        run: mvn -B -Drevision=${{ steps.version.outputs.version }} clean package -DskipTests
 
       - name: Build VSCode extension VSIX
         working-directory: vscode-sqltools
@@ -63,8 +63,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # Reference the freshly built artifacts by exact version, never the
+          # committed dist/ directories.
           files: |
-            jdbc-driver/dist/keboola-jdbc-driver-*.jar
-            vscode-sqltools/sqltools-keboola-driver-*.vsix
+            jdbc-driver/target/keboola-jdbc-driver-${{ steps.version.outputs.version }}.jar
+            vscode-sqltools/sqltools-keboola-driver-${{ steps.version.outputs.version }}.vsix
           fail_on_unmatched_files: true
           generate_release_notes: true
