@@ -34,6 +34,7 @@
     "watch": "tsup --watch",
     "pretest": "npm run compile && tsc -p tsconfig.test.json",
     "test": "vscode-test",
+    "prepackage": "npm run compile",
     "package": "vsce package --allow-star-activation",
     "publish": "vsce publish",
     "test:integration": "npx tsx tests/integration.test.ts"
