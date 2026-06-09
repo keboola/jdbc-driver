@@ -15,9 +15,14 @@ mvn test                   # Run unit tests
 make dist                  # Copy jar to dist/
 ```
 
-**Download:** [jdbc-driver/dist/keboola-jdbc-driver-2.1.4.jar](jdbc-driver/dist/keboola-jdbc-driver-2.1.4.jar)
+**Download:** Grab the latest `keboola-jdbc-driver-X.Y.Z.jar` from the [GitHub Releases page](https://github.com/keboola/jdbc-driver/releases/latest). Older builds remain available in [jdbc-driver/dist/](jdbc-driver/dist/) for reference.
 
-See [jdbc-driver/README.md](jdbc-driver/) for full documentation.
+**Installation guides:**
+- [DBeaver](docs/dbeaver.md)
+- [DataGrip](docs/datagrip.md) (and other JetBrains IDEs)
+- [Tableau Desktop](docs/tableau.md)
+
+See [jdbc-driver/](jdbc-driver/) for source and build instructions.
 
 ### [vscode-sqltools/](vscode-sqltools/) -- VSCode SQLTools Extension (v2.1.4)
 
