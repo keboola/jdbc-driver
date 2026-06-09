@@ -86,14 +86,19 @@ public class ConnectionConfig {
         }
 
         // Merge URL query parameters into properties. Properties win over URL params.
+        // Unknown keys are warned on for URL-sourced params only — IDE clients (DBeaver,
+        // DataGrip, ...) routinely inject their own properties (user, password, ssl, etc.)
+        // which would otherwise produce a warning on every connection.
         Properties effectiveProps = new Properties();
-        mergeQueryParams(effectiveProps, url);
+        Properties urlParams = new Properties();
+        mergeQueryParams(urlParams, url);
+        warnOnUnknownKeys(urlParams);
+        effectiveProps.putAll(urlParams);
         if (props != null) {
             for (String name : props.stringPropertyNames()) {
                 effectiveProps.setProperty(name, props.getProperty(name));
             }
         }
-        warnOnUnknownKeys(effectiveProps);
 
         String token = effectiveProps.getProperty("token");
         if (token == null || token.trim().isEmpty()) {
