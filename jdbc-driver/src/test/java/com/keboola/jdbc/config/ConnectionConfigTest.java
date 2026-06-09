@@ -343,12 +343,37 @@ class ConnectionConfigTest {
 
     @Test
     void fromUrl_urlEncodedTokenIsDecoded() throws KeboolaJdbcException {
-        // "+" and "%2B" both decode to "+"; a real Keboola token can contain a plus sign
+        // %2B must decode to '+' — Keboola tokens commonly contain a plus sign.
         String url = "jdbc:keboola://connection.keboola.com?token=abc%2Bdef";
 
         ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
 
         assertEquals("abc+def", config.getToken());
+    }
+
+    @Test
+    void fromUrl_literalPlusInTokenIsPreserved() throws KeboolaJdbcException {
+        // Unlike form-urlencoded, a literal '+' in a JDBC URL value must NOT become a space.
+        // Users will paste tokens containing '+' without URL-encoding them as %2B.
+        String url = "jdbc:keboola://connection.keboola.com?token=abc+def";
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
+
+        assertEquals("abc+def", config.getToken());
+    }
+
+    @Test
+    void fromUrl_emptyHostWithTokenInQueryDoesNotLeakToken() {
+        // A malformed URL where the host slot is empty but the query carries a token
+        // must NOT echo the token in the exception message (it ends up in logs).
+        String url = "jdbc:keboola://?token=super-secret-token";
+
+        KeboolaJdbcException ex = assertThrows(
+                KeboolaJdbcException.class,
+                () -> ConnectionConfig.fromUrl(url, new Properties())
+        );
+        assertFalse(ex.getMessage().contains("super-secret-token"),
+                "Exception message must not leak the token from the URL");
     }
 
     @Test

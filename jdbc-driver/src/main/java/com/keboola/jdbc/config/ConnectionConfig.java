@@ -2,7 +2,13 @@ package com.keboola.jdbc.config;
 
 import com.keboola.jdbc.exception.KeboolaJdbcException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -20,6 +26,8 @@ import java.util.regex.Pattern;
  */
 public class ConnectionConfig {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ConnectionConfig.class);
+
     /**
      * Matches a valid DNS hostname: labels of alphanumeric + hyphens, separated by dots.
      * Rejects raw IP addresses, localhost, and special characters to prevent SSRF.
@@ -27,6 +35,10 @@ public class ConnectionConfig {
     private static final Pattern VALID_HOSTNAME = Pattern.compile(
             "^([a-zA-Z0-9]([a-zA-Z0-9\\-]*[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$"
     );
+
+    private static final Set<String> KNOWN_KEYS = new HashSet<>(Arrays.asList(
+            "token", "branch", "workspace", "schema"
+    ));
 
     private final String host;
     private final String token;
@@ -59,8 +71,10 @@ public class ConnectionConfig {
 
         String host = extractHost(url);
         if (host.isEmpty()) {
+            // NOTE: do not echo the URL — it may carry a token in its query string.
             throw KeboolaJdbcException.connectionFailed(
-                    "Host must not be empty in JDBC URL: " + url
+                    "Host must not be empty in JDBC URL. Expected format: "
+                            + DriverConfig.URL_PREFIX + "<host>"
             );
         }
 
@@ -79,6 +93,7 @@ public class ConnectionConfig {
                 effectiveProps.setProperty(name, props.getProperty(name));
             }
         }
+        warnOnUnknownKeys(effectiveProps);
 
         String token = effectiveProps.getProperty("token");
         if (token == null || token.trim().isEmpty()) {
@@ -141,12 +156,28 @@ public class ConnectionConfig {
         }
     }
 
+    /**
+     * Percent-decodes a JDBC URL query value. Unlike {@code application/x-www-form-urlencoded},
+     * a literal {@code '+'} stays a {@code '+'} — Keboola Storage API tokens commonly contain
+     * a plus sign and most users will paste it without URL-encoding it as {@code %2B}.
+     */
     private static String urlDecode(String s) {
         try {
-            return java.net.URLDecoder.decode(s, java.nio.charset.StandardCharsets.UTF_8);
+            // Pre-escape literal '+' so URLDecoder doesn't turn it into a space.
+            String safe = s.replace("+", "%2B");
+            return java.net.URLDecoder.decode(safe, java.nio.charset.StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
             // Malformed escape — fall back to the raw value rather than failing the whole connection
             return s;
+        }
+    }
+
+    private static void warnOnUnknownKeys(Properties props) {
+        for (String name : props.stringPropertyNames()) {
+            if (!KNOWN_KEYS.contains(name)) {
+                LOG.warn("Unknown JDBC connection property '{}' — ignored. Known keys: {}",
+                        name, KNOWN_KEYS);
+            }
         }
     }
 
