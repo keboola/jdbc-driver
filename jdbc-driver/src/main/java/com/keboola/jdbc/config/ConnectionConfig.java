@@ -9,9 +9,10 @@ import java.util.regex.Pattern;
  * Parsed connection parameters derived from a JDBC URL and connection properties.
  *
  * Expected JDBC URL format:
- *   jdbc:keboola://connection.keboola.com
+ *   jdbc:keboola://connection.keboola.com[?token=...&branch=...&workspace=...&schema=...]
  *
- * Supported properties:
+ * Supported properties (may be supplied via Properties or as URL query parameters;
+ * Properties take precedence when both are present):
  *   token     (required) - Keboola Storage API token
  *   branch    (optional) - branch ID to execute queries against
  *   workspace (optional) - workspace ID to use for query execution
@@ -70,7 +71,14 @@ public class ConnectionConfig {
             );
         }
 
-        Properties effectiveProps = props != null ? props : new Properties();
+        // Merge URL query parameters into properties. Properties win over URL params.
+        Properties effectiveProps = new Properties();
+        mergeQueryParams(effectiveProps, url);
+        if (props != null) {
+            for (String name : props.stringPropertyNames()) {
+                effectiveProps.setProperty(name, props.getProperty(name));
+            }
+        }
 
         String token = effectiveProps.getProperty("token");
         if (token == null || token.trim().isEmpty()) {
@@ -93,12 +101,53 @@ public class ConnectionConfig {
     private static String extractHost(String url) {
         // Strip the jdbc:keboola:// prefix
         String remainder = url.substring(DriverConfig.URL_PREFIX.length());
-        // Remove any trailing path or query string
+        // Remove any trailing path
         int slashIndex = remainder.indexOf('/');
         if (slashIndex >= 0) {
             remainder = remainder.substring(0, slashIndex);
         }
+        // Remove any trailing query string
+        int queryIndex = remainder.indexOf('?');
+        if (queryIndex >= 0) {
+            remainder = remainder.substring(0, queryIndex);
+        }
         return remainder.trim();
+    }
+
+    /**
+     * Parses any query string in the JDBC URL ({@code ?k=v&k2=v2}) and writes the pairs
+     * into {@code target}. Values are URL-decoded. Pairs without an "=" are ignored.
+     * Anything before the first "?" is the host portion and is skipped here.
+     */
+    private static void mergeQueryParams(Properties target, String url) {
+        int queryIndex = url.indexOf('?');
+        if (queryIndex < 0 || queryIndex == url.length() - 1) {
+            return;
+        }
+        String query = url.substring(queryIndex + 1);
+        for (String pair : query.split("&")) {
+            if (pair.isEmpty()) {
+                continue;
+            }
+            int eq = pair.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String key = urlDecode(pair.substring(0, eq));
+            String value = urlDecode(pair.substring(eq + 1));
+            if (!key.isEmpty()) {
+                target.setProperty(key, value);
+            }
+        }
+    }
+
+    private static String urlDecode(String s) {
+        try {
+            return java.net.URLDecoder.decode(s, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            // Malformed escape — fall back to the raw value rather than failing the whole connection
+            return s;
+        }
     }
 
     /**
