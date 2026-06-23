@@ -2,7 +2,7 @@
 
 This guide walks you through installing the Keboola JDBC driver in [Tableau Desktop](https://www.tableau.com/products/desktop) using the generic **Other Databases (JDBC)** connector.
 
-> Tableau's JDBC connector has no UI for custom driver properties, so the Storage API token is supplied via the JDBC URL query string. Treat the connection URL like a secret.
+> Tableau's JDBC connector has no UI for custom driver properties. Supply the Storage API token in the **Password** field — the driver accepts it there so the token stays out of the JDBC URL. (Tableau stores the URL as plaintext in saved/published data sources, but treats the password as a credential.)
 
 ## Prerequisites
 
@@ -38,11 +38,12 @@ Create the directory if it doesn't exist. **Restart Tableau Desktop** after drop
 2. Fill in the connection form:
    - **URL:**
      ```
-     jdbc:keboola://connection.keboola.com?token=YOUR_STORAGE_API_TOKEN
+     jdbc:keboola://connection.keboola.com
      ```
-     Replace the host with your Keboola stack (e.g. `connection.eu-central-1.keboola.com`) and `YOUR_STORAGE_API_TOKEN` with your token. Optional: append `&branch=<id>&workspace=<id>` to pin a specific branch or workspace; both are auto-detected if omitted.
+     Replace the host with your Keboola stack (e.g. `connection.eu-central-1.keboola.com`). Optional: append `?branch=<id>&workspace=<id>` to pin a specific branch or workspace; both are auto-detected if omitted.
    - **Dialect:** `SQL92`
-   - **Username / Password:** leave empty (auth is via the `token` URL parameter).
+   - **Username:** leave empty.
+   - **Password:** your **Storage API token**. The driver reads the token from the password field, keeping it out of the (plaintext) URL.
 
    <!-- TODO screenshot: Tableau_connection_form.png — Filled-in Other Databases (JDBC) dialog with the jdbc:keboola:// URL and SQL92 dialect selected; redact the token before screenshotting -->
    ![JDBC connection form](Tableau_connection_form.png)

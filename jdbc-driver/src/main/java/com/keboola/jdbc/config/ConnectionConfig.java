@@ -19,7 +19,13 @@ import java.util.regex.Pattern;
  *
  * Supported properties (may be supplied via Properties or as URL query parameters;
  * Properties take precedence when both are present):
- *   token     (required) - Keboola Storage API token
+ *   token     (required) - Keboola Storage API token. May also be supplied via the
+ *                          standard {@code password} property — useful for clients such
+ *                          as Tableau whose generic JDBC connector has no UI for custom
+ *                          properties but does pass the dialog "Password" field to the
+ *                          driver as {@code password}. This keeps the secret out of the
+ *                          JDBC URL (which Tableau stores as plaintext in published data
+ *                          sources). An explicit {@code token} wins over {@code password}.
  *   branch    (optional) - branch ID to execute queries against
  *   workspace (optional) - workspace ID to use for query execution
  *   schema    (optional) - default schema (bucket) to use for unqualified table references
@@ -37,7 +43,7 @@ public class ConnectionConfig {
     );
 
     private static final Set<String> KNOWN_KEYS = new HashSet<>(Arrays.asList(
-            "token", "branch", "workspace", "schema"
+            "token", "password", "branch", "workspace", "schema"
     ));
 
     private final String host;
@@ -100,10 +106,18 @@ public class ConnectionConfig {
             }
         }
 
-        String token = effectiveProps.getProperty("token");
-        if (token == null || token.trim().isEmpty()) {
+        // The token may be supplied as 'token' or, as a fallback, via the standard
+        // 'password' property. The fallback lets Tableau users keep the token out of the
+        // JDBC URL by typing it into the connection dialog's Password field. An explicit
+        // 'token' always wins over 'password'.
+        String token = firstNonBlank(
+                effectiveProps.getProperty("token"),
+                effectiveProps.getProperty("password")
+        );
+        if (token == null) {
             throw KeboolaJdbcException.authenticationFailed(
-                    "Property 'token' is required but was not provided"
+                    "Property 'token' is required but was not provided "
+                            + "(supply it as 'token', or via the 'password' field)"
             );
         }
 
@@ -184,6 +198,18 @@ public class ConnectionConfig {
                         name, KNOWN_KEYS);
             }
         }
+    }
+
+    /**
+     * Returns the first argument that is neither null nor blank, or null if none qualify.
+     */
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**

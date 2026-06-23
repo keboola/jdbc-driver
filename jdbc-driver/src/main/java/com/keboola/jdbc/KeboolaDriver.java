@@ -80,7 +80,12 @@ public class KeboolaDriver implements Driver {
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
         Properties effectiveInfo = (info != null) ? info : new Properties();
+        // Mirror ConnectionConfig: the token may also be supplied via the standard
+        // 'password' property, so honor it here too when populating API-backed choices.
         String token = effectiveInfo.getProperty("token", "");
+        if (token.isEmpty()) {
+            token = effectiveInfo.getProperty("password", "");
+        }
 
         List<DriverPropertyInfo> props = new ArrayList<>();
 

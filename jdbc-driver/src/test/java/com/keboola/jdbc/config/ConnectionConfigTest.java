@@ -187,6 +187,61 @@ class ConnectionConfigTest {
     }
 
     // -------------------------------------------------------------------------
+    // fromUrl() - token via 'password' fallback (Tableau-friendly)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void fromUrl_tokenViaPasswordProperty_isAccepted() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("password", VALID_TOKEN);
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    @Test
+    void fromUrl_tokenViaPasswordProperty_isStoredTrimmed() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("password", "  " + VALID_TOKEN + "  ");
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    @Test
+    void fromUrl_explicitTokenWinsOverPassword() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("token", "the-real-token");
+        props.setProperty("password", "ignored-password");
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals("the-real-token", config.getToken());
+    }
+
+    @Test
+    void fromUrl_blankTokenFallsBackToPassword() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("token", "   ");
+        props.setProperty("password", VALID_TOKEN);
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    @Test
+    void fromUrl_passwordInQueryString_isAccepted() throws KeboolaJdbcException {
+        String url = "jdbc:keboola://connection.keboola.com?password=" + VALID_TOKEN;
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    // -------------------------------------------------------------------------
     // fromUrl() - invalid URL
     // -------------------------------------------------------------------------
 
