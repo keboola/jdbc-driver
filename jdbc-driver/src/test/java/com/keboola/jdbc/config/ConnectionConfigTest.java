@@ -187,6 +187,61 @@ class ConnectionConfigTest {
     }
 
     // -------------------------------------------------------------------------
+    // fromUrl() - token via 'password' fallback (Tableau-friendly)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void fromUrl_tokenViaPasswordProperty_isAccepted() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("password", VALID_TOKEN);
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    @Test
+    void fromUrl_tokenViaPasswordProperty_isStoredTrimmed() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("password", "  " + VALID_TOKEN + "  ");
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    @Test
+    void fromUrl_explicitTokenWinsOverPassword() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("token", "the-real-token");
+        props.setProperty("password", "ignored-password");
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals("the-real-token", config.getToken());
+    }
+
+    @Test
+    void fromUrl_blankTokenFallsBackToPassword() throws KeboolaJdbcException {
+        Properties props = new Properties();
+        props.setProperty("token", "   ");
+        props.setProperty("password", VALID_TOKEN);
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(VALID_URL, props);
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    @Test
+    void fromUrl_passwordInQueryString_isAccepted() throws KeboolaJdbcException {
+        String url = "jdbc:keboola://connection.keboola.com?password=" + VALID_TOKEN;
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
+
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    // -------------------------------------------------------------------------
     // fromUrl() - invalid URL
     // -------------------------------------------------------------------------
 
@@ -296,5 +351,95 @@ class ConnectionConfigTest {
 
         assertFalse(str.contains(VALID_TOKEN), "toString() must not expose the API token");
         assertTrue(str.contains("connection.keboola.com"), "toString() should include the host");
+    }
+
+    // ---------------------------------------------------------------------
+    // URL query string parsing — Tableau-style "all-in-URL" connections
+    // ---------------------------------------------------------------------
+
+    @Test
+    void fromUrl_tokenInQueryString_isAccepted() throws KeboolaJdbcException {
+        String url = "jdbc:keboola://connection.keboola.com?token=" + VALID_TOKEN;
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
+
+        assertEquals("connection.keboola.com", config.getHost());
+        assertEquals(VALID_TOKEN, config.getToken());
+    }
+
+    @Test
+    void fromUrl_allParamsInQueryString_areParsed() throws KeboolaJdbcException {
+        String url = "jdbc:keboola://connection.keboola.com"
+                + "?token=" + VALID_TOKEN
+                + "&branch=42"
+                + "&workspace=99"
+                + "&schema=my-bucket";
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
+
+        assertEquals(VALID_TOKEN, config.getToken());
+        assertEquals(42L, config.getBranchId());
+        assertEquals(99L, config.getWorkspaceId());
+        assertEquals("my-bucket", config.getSchema());
+    }
+
+    @Test
+    void fromUrl_propertiesOverrideQueryString() throws KeboolaJdbcException {
+        String url = "jdbc:keboola://connection.keboola.com?token=url-token&branch=1";
+        Properties props = new Properties();
+        props.setProperty("token", "props-token");
+        props.setProperty("branch", "999");
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, props);
+
+        assertEquals("props-token", config.getToken());
+        assertEquals(999L, config.getBranchId());
+    }
+
+    @Test
+    void fromUrl_urlEncodedTokenIsDecoded() throws KeboolaJdbcException {
+        // %2B must decode to '+' — Keboola tokens commonly contain a plus sign.
+        String url = "jdbc:keboola://connection.keboola.com?token=abc%2Bdef";
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
+
+        assertEquals("abc+def", config.getToken());
+    }
+
+    @Test
+    void fromUrl_literalPlusInTokenIsPreserved() throws KeboolaJdbcException {
+        // Unlike form-urlencoded, a literal '+' in a JDBC URL value must NOT become a space.
+        // Users will paste tokens containing '+' without URL-encoding them as %2B.
+        String url = "jdbc:keboola://connection.keboola.com?token=abc+def";
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, new Properties());
+
+        assertEquals("abc+def", config.getToken());
+    }
+
+    @Test
+    void fromUrl_emptyHostWithTokenInQueryDoesNotLeakToken() {
+        // A malformed URL where the host slot is empty but the query carries a token
+        // must NOT echo the token in the exception message (it ends up in logs).
+        String url = "jdbc:keboola://?token=super-secret-token";
+
+        KeboolaJdbcException ex = assertThrows(
+                KeboolaJdbcException.class,
+                () -> ConnectionConfig.fromUrl(url, new Properties())
+        );
+        assertFalse(ex.getMessage().contains("super-secret-token"),
+                "Exception message must not leak the token from the URL");
+    }
+
+    @Test
+    void fromUrl_emptyQueryStringIsIgnored() throws KeboolaJdbcException {
+        // Trailing "?" with no params used to break host extraction; verify it's tolerated
+        String url = "jdbc:keboola://connection.keboola.com?";
+        Properties props = new Properties();
+        props.setProperty("token", VALID_TOKEN);
+
+        ConnectionConfig config = ConnectionConfig.fromUrl(url, props);
+
+        assertEquals("connection.keboola.com", config.getHost());
     }
 }
