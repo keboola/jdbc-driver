@@ -103,6 +103,34 @@ class QueryServiceClientTest {
     }
 
     @Test
+    void submitJob_withQueryTag_sendsItWithEveryJob() throws Exception {
+        Map<String, Object> queryTag = new LinkedHashMap<>();
+        queryTag.put("client", "jdbc-driver");
+        queryTag.put("projectId", 6789);
+        QueryServiceClient taggedClient = new QueryServiceClient(server.url("").toString(), "test-token", queryTag);
+        server.enqueue(jsonResponse(200, Collections.singletonMap("queryJobId", "job-4")));
+        server.enqueue(jsonResponse(200, Collections.singletonMap("queryJobId", "job-5")));
+
+        taggedClient.submitJob(1L, 2L, Collections.singletonList("SELECT 1"), "sess-1");
+        taggedClient.submitJob(1L, 2L, Collections.singletonList("SELECT 2"), "sess-1");
+
+        for (int i = 0; i < 2; i++) {
+            String reqBody = server.takeRequest().getBody().readUtf8();
+            assertTrue(reqBody.contains("\"queryTag\":{\"client\":\"jdbc-driver\",\"projectId\":6789}"), reqBody);
+        }
+    }
+
+    @Test
+    void submitJob_withoutQueryTag_doesNotIncludeFieldInBody() throws Exception {
+        server.enqueue(jsonResponse(200, Collections.singletonMap("queryJobId", "job-6")));
+
+        client.submitJob(1L, 2L, Collections.singletonList("SELECT 1"), "sess-1");
+
+        String reqBody = server.takeRequest().getBody().readUtf8();
+        assertFalse(reqBody.contains("queryTag"), reqBody);
+    }
+
+    @Test
     void submitJob_http401_throwsAuthenticationFailed() {
         server.enqueue(jsonResponse(401, Collections.singletonMap("error", "no")));
 
