@@ -1,7 +1,5 @@
 package com.keboola.jdbc;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.keboola.jdbc.exception.KeboolaJdbcException;
 import com.keboola.jdbc.http.QueryServiceClient;
 import com.keboola.jdbc.http.StorageApiClient;
@@ -26,6 +24,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -337,93 +336,59 @@ class KeboolaConnectionTest {
     }
 
     // ---------------------------------------------------------------------
-    // QUERY_TAG builder
+    // QUERY_TAG keys
     // ---------------------------------------------------------------------
 
-    private static final ObjectMapper TAG_MAPPER = new ObjectMapper();
-
     @Test
-    void buildQueryTagFollowsConventionWithTokenAndProject() throws Exception {
+    void buildQueryTagNamesClientWithTokenAndProject() {
         TokenInfo info = new TokenInfo(
                 "12345", "my token", false,
                 new TokenInfo.Owner(6789, "My Project"), "snowflake");
 
-        JsonNode tag = TAG_MAPPER.readTree(KeboolaConnection.buildQueryTag(info));
+        Map<String, Object> tag = KeboolaConnection.buildQueryTag(info);
 
-        assertEquals("jdbc-driver", tag.get("keboola_service").asText());
-        assertFalse(tag.has("service"), "legacy 'service' key must not be emitted");
-        assertEquals("12345", tag.get("tokenId").asText());
-        assertEquals(6789, tag.get("projectId").asInt());
+        assertEquals("jdbc-driver", tag.get("client"));
+        assertEquals("12345", tag.get("tokenId"));
+        assertEquals(6789, tag.get("projectId"));
     }
 
     @Test
-    void buildQueryTagOmitsProjectWhenOwnerNull() throws Exception {
+    void buildQueryTagNeverSendsKeysReservedByQueryService() {
+        TokenInfo info = new TokenInfo(
+                "12345", "my token", false,
+                new TokenInfo.Owner(6789, "My Project"), "snowflake");
+
+        Map<String, Object> tag = KeboolaConnection.buildQueryTag(info);
+
+        assertFalse(tag.containsKey("keboola_service"));
+        assertFalse(tag.containsKey("service"));
+        assertFalse(tag.containsKey("runId"));
+    }
+
+    @Test
+    void buildQueryTagOmitsProjectWhenOwnerNull() {
         TokenInfo info = new TokenInfo("12345", "my token", false, null, "snowflake");
 
-        JsonNode tag = TAG_MAPPER.readTree(KeboolaConnection.buildQueryTag(info));
+        Map<String, Object> tag = KeboolaConnection.buildQueryTag(info);
 
-        assertEquals("jdbc-driver", tag.get("keboola_service").asText());
-        assertEquals("12345", tag.get("tokenId").asText());
-        assertFalse(tag.has("projectId"), "projectId must be omitted when owner is null");
+        assertEquals("jdbc-driver", tag.get("client"));
+        assertEquals("12345", tag.get("tokenId"));
+        assertFalse(tag.containsKey("projectId"), "projectId must be omitted when owner is null");
     }
 
     @Test
-    void buildQueryTagHandlesNullTokenInfo() throws Exception {
-        JsonNode tag = TAG_MAPPER.readTree(KeboolaConnection.buildQueryTag(null));
+    void buildQueryTagHandlesNullTokenInfo() {
+        Map<String, Object> tag = KeboolaConnection.buildQueryTag(null);
 
-        assertEquals("jdbc-driver", tag.get("keboola_service").asText());
-        assertFalse(tag.has("tokenId"));
-        assertFalse(tag.has("projectId"));
-    }
-
-    @Test
-    void buildQueryTagProducesValidJsonWhenTokenIdContainsQuote() throws Exception {
-        TokenInfo info = new TokenInfo(
-                "weird\"id", "desc", false,
-                new TokenInfo.Owner(1, "p"), "snowflake");
-
-        // Must parse back cleanly — proves Jackson escaping, not string concatenation.
-        JsonNode tag = TAG_MAPPER.readTree(KeboolaConnection.buildQueryTag(info));
-
-        assertEquals("weird\"id", tag.get("tokenId").asText());
+        assertEquals(Map.of("client", "jdbc-driver"), tag);
     }
 
     // -------------------------------------------------------------------------
-    // buildQueryTagStatement()
+    // initCatalogAndSchema()
     // -------------------------------------------------------------------------
 
     @Test
-    void buildQueryTagStatementWrapsTagInAlterSession() {
-        TokenInfo info = new TokenInfo(
-                "12345", "my token", false,
-                new TokenInfo.Owner(6789, "My Project"), "snowflake");
-
-        String sql = KeboolaConnection.buildQueryTagStatement(info);
-
-        assertTrue(sql.startsWith("ALTER SESSION SET QUERY_TAG='"),
-                "should start with ALTER SESSION SET QUERY_TAG=', was: " + sql);
-        assertTrue(sql.endsWith("'"), "should end with the closing quote, was: " + sql);
-        assertTrue(sql.contains("jdbc-driver"), "tag should contain the service marker, was: " + sql);
-    }
-
-    @Test
-    void buildQueryTagStatementEscapesSingleQuoteForSqlLiteral() {
-        TokenInfo info = new TokenInfo(
-                "it's", "desc", false,
-                new TokenInfo.Owner(1, "p"), "snowflake");
-
-        String sql = KeboolaConnection.buildQueryTagStatement(info);
-
-        assertTrue(sql.contains("it''s"),
-                "single quote in tag value must be doubled for the SQL literal, was: " + sql);
-    }
-
-    // -------------------------------------------------------------------------
-    // initCatalogAndSchema() — QUERY_TAG is folded into the init job
-    // -------------------------------------------------------------------------
-
-    @Test
-    void initCatalogAndSchemaPrependsQueryTagAsFirstStatement() throws Exception {
+    void initCatalogAndSchemaDoesNotSetQueryTagInSession() throws Exception {
         conn.initCatalogAndSchema();
 
         @SuppressWarnings("unchecked")
@@ -431,23 +396,19 @@ class KeboolaConnectionTest {
         verify(queryClient).submitJob(anyLong(), anyLong(), stmtsCaptor.capture(), anyString());
 
         List<String> stmts = stmtsCaptor.getValue();
-        assertTrue(stmts.size() >= 2,
-                "init job should carry the tag plus discovery statement(s), was: " + stmts);
-        assertTrue(stmts.get(0).startsWith("ALTER SESSION SET QUERY_TAG="),
-                "QUERY_TAG must be the first statement so it is set before any query, was: " + stmts.get(0));
+        assertTrue(stmts.stream().noneMatch(sql -> sql.toUpperCase().contains("QUERY_TAG")),
+                "the tag is sent as queryTag, not as ALTER SESSION, was: " + stmts);
         assertTrue(stmts.get(stmts.size() - 1).contains("CURRENT_DATABASE()"),
                 "the discovery SELECT must remain the last statement, was: " + stmts.get(stmts.size() - 1));
     }
 
     @Test
     void initCatalogAndSchemaIsNonFatalWhenInitJobFails() throws Exception {
-        // The whole safety argument for shipping tagging: a failing init job (which now
-        // carries the tag) must never break the connection.
         when(queryClient.submitJob(anyLong(), anyLong(), any(), anyString()))
                 .thenThrow(new KeboolaJdbcException("boom"));
 
         assertDoesNotThrow(() -> conn.initCatalogAndSchema(),
-                "init/tagging failure must never propagate");
+                "init failure must never propagate");
         assertFalse(conn.isClosed(), "connection must remain usable after a failed init job");
     }
 }

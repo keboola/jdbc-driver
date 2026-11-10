@@ -40,18 +40,33 @@ public class QueryServiceClient {
     private final String       token;
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
+    private final java.util.Map<String, Object> queryTag;
+
+    /**
+     * Creates a new Query Service client that sends no query tag.
+     *
+     * @param queryServiceUrl base URL of the Query Service, e.g. "https://query.keboola.com"
+     * @param token           Keboola Storage API token used for all requests
+     */
+    public QueryServiceClient(String queryServiceUrl, String token) {
+        this(queryServiceUrl, token, java.util.Collections.emptyMap());
+    }
 
     /**
      * Creates a new Query Service client.
      *
      * @param queryServiceUrl base URL of the Query Service, e.g. "https://query.keboola.com"
      * @param token           Keboola Storage API token used for all requests
+     * @param queryTag        keys sent as {@code queryTag} with every job. Query Service sets
+     *                        QUERY_TAG per statement, so a session-level ALTER SESSION tag would be
+     *                        overwritten; these keys are merged into its tag instead.
      */
-    public QueryServiceClient(String queryServiceUrl, String token) {
+    public QueryServiceClient(String queryServiceUrl, String token, java.util.Map<String, Object> queryTag) {
         this.queryServiceUrl = queryServiceUrl.endsWith("/")
                 ? queryServiceUrl.substring(0, queryServiceUrl.length() - 1)
                 : queryServiceUrl;
         this.token = token;
+        this.queryTag = queryTag;
 
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(DriverConfig.HTTP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -254,6 +269,9 @@ public class QueryServiceClient {
             body.put("statements", statements);
             if (sessionId != null && !sessionId.isEmpty()) {
                 body.put("sessionId", sessionId);
+            }
+            if (!queryTag.isEmpty()) {
+                body.put("queryTag", queryTag);
             }
             return objectMapper.writeValueAsString(body);
         } catch (IOException e) {
